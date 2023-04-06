@@ -7,7 +7,7 @@
 
 ## 摘要
 
-本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Aasset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击，并提供完备的协议接口描述。 
+本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Aasset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击，并提供完备的协议接口描述。
 
 ## 动机
 
@@ -33,7 +33,7 @@ MAP Protocol 作为跨链协议，天然具有 Token Bridge 功能。资产跨�
 7. **响应跨链请求**： MOS 主动调用 TokenPortal 合约的 relayCrossChainRequest 函数，传递跨链请求数据。
 8. **二次验证**：TokenPortal  利用校验码校验跨链请求数据是否完备，并不允许重新响应相同请求。
 9. **释放资产**： TokenPortal 从 Vault 中解锁资产。
-10. **发送资产**：Token Portal 将解锁资产发放给资产接收人。 
+10. **发送资产**：Token Portal 将解锁资产发放给资产接收人。
 
 
 
@@ -47,9 +47,7 @@ MAP Protocol 作为跨链协议，天然具有 Token Bridge 功能。资产跨�
 
 方案三：发放兑换票据，流动性不足时跨链请求保持成功，释放的不是目标链真实资产，而是目标链上的资产兑换凭据 Token。使用凭据 Token可以 1:1 兑换真实资产。该方案确保跨链请求不受流动性影响，用户也能在流动性充裕时立即从  TokenVault 兑换资产。
 
-
-
-###接口描述
+### 接口描述
 
 ```Solidity
 
@@ -66,8 +64,8 @@ interface ICrossChainRequestReceiver{
 /**
   @notice 发送资产跨链请求
 */
-interface ITokenPortalOut { 
-		
+interface ITokenPortalOut {
+
 		/**
 		  @notice 请求锁定资产以进行跨链操作
 		  @param  targetChainId        目标链ID
@@ -75,48 +73,48 @@ interface ITokenPortalOut {
 		  @param  sourceAssetAddress   源链资产地址
 		  @param  amount         跨链数量
 		  @param  salt           作为跨链请求的一部分，便于生生成不同的 ReqID
-		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。 
+		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。
 		  @param  payload   额外携带的数据包，用作 `requestReceiver.onCrossChainRequestReceived`的`payload`数据填充.
 		  @param  返回本次跨链请求事件 verificationCode
 		*/
 		function submitCrossChainRequest(
-		 uint256 targetChainId, bytes32 targetChainRecipient, 
+		 uint256 targetChainId, bytes32 targetChainRecipient,
 		 bytes32 sourceAssetAddress, uint256 amount,bytes32 salt,
 	   bytes32 requestReceiver, bytes calldata payload) returns(bytes32 verificationCode);
-		
+
 			/**
 			 @notice  重发请求
 			 @dev 只允许提交过的请求重新发送，重新发送的目的是方便目标链重新处理事情。
 			 注意：目标链将确保 verificationCode 只会把处理一次。
 			*/
 		 function retryCrossChainRequest(bytes32 verificationCode);
-		 
+
 }
 
 /**
   @notice 响应资产跨链请求
 */
 interface ITokenPortalIn {
-	
+
 			/**
 			@notice 执行解锁资产以完成跨链操作
-			@dev    
+			@dev
 		  @param  sourceChainId   		源链ID
 		  @param  recipient       		接收地址
 		  @param  sourceAssetAddress  源链资产地址
 		  @param  amount          跨链数量
 		  @param  salt            作为跨链请求的一部分
-		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。 
+		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。
 		  @param  payload   额外携带的数据包，用作 `requestReceiver.onCrossChainRequestReceived`的`payload`数据填充.
-		  @param verificationCode 校验码，用于校验数据的完整性，它是跨链请求消息的SHA3哈希值。 
+		  @param verificationCode 校验码，用于校验数据的完整性，它是跨链请求消息的SHA3哈希值。
 		*/
 		function relayCrossChainRequest(
 		 uint256 sourceChainId, bytes32 recipient,
      bytes32 sourceAssetAddress,
 	   uint256 amount,bytes32 salt,
-	   bytes32 requestReceiver, bytes calldata payload, 
-	   bytes32 verificationCode); 
-	   
+	   bytes32 requestReceiver, bytes calldata payload,
+	   bytes32 verificationCode);
+
 	   /**
 	     @notice 在目标链上查询指定跨链请求是否已完成
 	   */
@@ -124,8 +122,8 @@ interface ITokenPortalIn {
 }
 
 
- 
-interface ITokenVault { 
+
+interface ITokenVault {
 
 		/**
 		  @notice 返回 vault 中管理的底层资产合约地址
@@ -137,7 +135,7 @@ interface ITokenVault {
 		  @dev 只有 Vault 有权限 Mint 和 Burn 操作 ConvertibleToken
 		*/
 	  function convToken() returns(address);
-		
+
 		/**
 		 * @notice 查询 locker 的锁定数量
 		*/
@@ -147,16 +145,16 @@ interface ITokenVault {
 		  @dev  锁定资产将记录在
 		*/
 	  function lock(uint256 amount);
-	  
+
 		/**
-		  @notice 请求解锁的资产数量 
+		  @notice 请求解锁的资产数量
 		  @param to      解锁资产接受地址，不能为空地址
 		  @param amount  解锁数量
 		  @param recvConvertibleToken  是否同意在流动性不足时接收等值的可转换票据
 		  @return convTokens 返回在流动性不足时有多少Token被使用可转换票据替代。
 		*/
 		function unlock(address to, uint256 amount,bool recvConvertibleToken) returns(uint256 convTokens);
-		
+
 		/**
 		  @notice 将 ConvertibleToken 兑换成真实资产
 		*/
