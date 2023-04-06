@@ -68,6 +68,7 @@ interface ITokenPortalOut {
 
 		/**
 		  @notice 请求锁定资产以进行跨链操作
+		  @dev    在提交请求时还需要支付原子资产作为 relayerFee
 		  @param  targetChainId        目标链ID
 		  @param  targetChainRecipient 目标链接收地址
 		  @param  sourceAssetAddress   源链资产地址
@@ -75,17 +76,19 @@ interface ITokenPortalOut {
 		  @param  salt           作为跨链请求的一部分，便于生生成不同的 ReqID
 		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。
 		  @param  payload   额外携带的数据包，用作 `requestReceiver.onCrossChainRequestReceived`的`payload`数据填充.
+		  @param  payloadGasLimit 指定 onCrossChainRequestReceived 方法的Gas开销上线。该值可以通过在目标链模拟执行 relayCrossChainRequest 计算。
 		  @param  返回本次跨链请求事件 verificationCode
 		*/
 		function submitCrossChainRequest(
 		 uint256 targetChainId, bytes32 targetChainRecipient,
 		 bytes32 sourceAssetAddress, uint256 amount,bytes32 salt,
-	   bytes32 requestReceiver, bytes calldata payload) returns(bytes32 verificationCode);
+	   bytes32 requestReceiver, bytes calldata payload,uint256 payloadGasLimit) 
+	   returns(bytes32 verificationCode) payable;
 
 			/**
 			 @notice  重发请求
 			 @dev 只允许提交过的请求重新发送，重新发送的目的是方便目标链重新处理事情。
-			 注意：目标链将确保 verificationCode 只会把处理一次。
+			 注意：目标链将确保 verificationCode 只会处理一次。
 			*/
 		 function retryCrossChainRequest(bytes32 verificationCode);
 
@@ -98,7 +101,10 @@ interface ITokenPortalIn {
 
 			/**
 			@notice 执行解锁资产以完成跨链操作
-			@dev
+			@dev    该方法的msg.sender 只允许是 MOS 合约或者空地址。
+			 1. msg.sender 为空地址，说明是链下模拟执行。
+			 2. 注意 MOS 合约地址变更，则将无法正常工作。
+			 3. 必须确保 verificationCode 只会被处理一次且验证数据的完备性。
 		  @param  sourceChainId   		源链ID
 		  @param  recipient       		接收地址
 		  @param  sourceAssetAddress  源链资产地址
@@ -118,7 +124,7 @@ interface ITokenPortalIn {
 	   /**
 	     @notice 在目标链上查询指定跨链请求是否已完成
 	   */
-	   function isRequestCompleted(bytes32 verificationCode) returns(bool);
+	   function isRequestCompleted(bytes32 verificationCode) view returns(bool);
 }
 
 
@@ -128,18 +134,18 @@ interface ITokenVault {
 		/**
 		  @notice 返回 vault 中管理的底层资产合约地址
 		*/
-	  function underlyingToken() returns(address);
+	  function underlyingToken() view returns(address);
 
 		/**
 		  @notice 返回对应的等值可兑换票据Token合约地址
 		  @dev 只有 Vault 有权限 Mint 和 Burn 操作 ConvertibleToken
 		*/
-	  function convToken() returns(address);
+	  function convToken() view returns(address);
 
 		/**
 		 * @notice 查询 locker 的锁定数量
 		*/
-		function balanceOf(address locker) returns(uint256 amount);
+		function balanceOf(address locker) view returns(uint256 amount);
 		/**
 		  @notice 请求锁定的资产数量
 		  @dev  锁定资产将记录在
