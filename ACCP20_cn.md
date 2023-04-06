@@ -7,7 +7,7 @@
 
 ## 摘要
 
-本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Aasset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击，并提供完备的协议接口描述。
+本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Asset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击，并提供完备的协议接口描述。
 
 ## 动机
 
