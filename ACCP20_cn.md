@@ -7,126 +7,155 @@
 
 ## 摘要
 
-本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Asset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击，并提供完备的协议接口描述。
+本文档描述了一个基于 MAP Protocol 的 ERC20 Token 跨链设计方案。ACCP是 “Asset Cross-Chain Protocol” 的缩写。该方案旨在确保资产跨链的安全性、防止双花攻击、共享流动性并提供完备的协议接口描述。
 
 ## 动机
 
-MAP Protocol 作为跨链协议，天然具有 Token Bridge 功能。资产跨链属于跨链的强需求，项目方在使用 MAP Protocol 作为消息跨链底座时，80%以上都会涉及资产跨链。与其项目方重复造轮子，还不如在 MAP Protocol 生态中携手创建资产跨链标准组件。旨在在确保资产跨链的安全性、提高项目方接入的便利性和统一性。繁荣生态，共识共建。
+MAP Protocol 作为跨链协议，天然具有 Token Bridge 功能。资产跨链属于跨链的强需求，项目方在使用 MAP Protocol 作为消息跨链底座时，80%以上都会涉及资产跨链，且都会面临跨链流动性再平衡和激励问题。 与其生态项目方重复造轮子，还不如在 MAP Protocol 生态中携手创建资产跨链基础设施 ACCP。ACCP 旨在在确保资产跨链的安全性、提高项目方接入的便利性和统一性、共享流动性。繁荣生态，共识共建，让 ACCP 成为跨链的模块化组件。
+
+## 基本原理
+
+将所有L1和L2链的 ERC20 分别在 MAP Relay Chain（简称 MAPO ）1比1映射一个 ERC20 ，简称 mToken。例如 Ethereum 链的 XYZ Token 映射到 MAPO 链的 mXYZΞ Token。
+
+然后在 MAPO 链创建和Curve协议一样的稳定币兑换算法来交易相同价值的 mToken，理想情况下 mXYZΞ  和 mXYZBSC 兑换率是 1:1 。
+
+使用 AMM 机制解决流动性，使用  ACCP 标准提供统一市场标准。项目方可自愿成为 AMM 流动性提供者，任何用户也可自由提供流动性。
+
+MAP Protocol的轻节点验证网络采用独立自我验证机制和即时验证的特点，可以确保资产跨链的安全性。跨链OrderID和 reqID 的唯一性可以防止用户在源链和目标链上同时使用相同的资产。此外，Maintainer 是独立的跨链程序，负责更新轻节点的状态，Light-Client 机制确保Maintainer的恶意攻击无效。
+
+本协议是在 MAP Protocol 底层协议之上构建的应用层标准，规范了 ERC20 资产跨链的交互流程。
+
+## 使用场景
+
+1. 项目方在MAP内在解决流动性再平衡。
+2. 第三方可创建形式多样的流动性质押服务，发展 DeFI 衍生品。
+3. 现有资产跨链转移，未来资产多链部署，创建资产桥服务。
 
 ## 规范
 
-**链间资产映射**
+### 链间资产映射
 
-为确保资产在跨链过程中的安全性，我们将在源链（Source Chain）和目标链（Target Chain）上分别创建相应的代币Vault合约。在源链上，将有原始ERC20代币锁定在Vault中。而在目标链上，将从 Vault 中解锁目标资产。锁定和解锁之间的关联将由MAP Protocol提供的跨链验证网络来确保。
+为确保资产在跨链过程中的安全性，我们将在源链（Source Chain）、目标链（Target Chain）、中继链（MAP Relay Chain）上分别创建相应的代币的映射Token mtoken。
 
-**跨链操作流程**
+跨入时，在源链上将原始 ERC20 代币锁定在 Vault 合约中。再在中继链上 1:1 铸造 mToken 发送给跨链方。跨出时，在MAPO上销毁 mToken，继而在目标链上从 Vault 合约中解锁对应数量的目标资产。锁定和解锁之间的关联将由 MAP Protocol 提供的跨链验证网络来确保。
 
-![image-20230405234951775](assets/image-20230405234951775.png)
- [查看](https://viewer.diagrams.net/index.html?tags=%7B%7D&highlight=0000ff&edit=_blank&layers=1&nav=1&title=Token%E8%B7%A8%E9%93%BE#Uhttps%3A%2F%2Fdrive.google.com%2Fuc%3Fid%3D1KXISWN7xgju-mcY8VdWaHirGmyqH7bxa%26export%3Ddownload)最新流程图。
+```mermaid
+graph LR;
+    A[Near USDC] --lock--> B[Near USDC Vault];
+    B --mint--> C[mUSDCNEAR];
+    C ----> D[BSC USDC Vault];
+    D --unlock--> E[BSC USDC];
+```
 
-1. **请求跨链**：用户通过调用源链上的 TokenPortal  合约的请求跨链函数。
-2. **转移资产**：TokenPortal  合约从用户钱包中转移资产，这此之前需要用户授权USDC给TokenPortal 合约。
-3. **锁定资产：** TokenPortal  将源链资产锁入到 Vault 合约中。
-4. **提交跨链请求**：TokenPortal  将跨链消息提交给MAP全链服务层（MOS），附带跨链事件的相关信息以及校验码。并记录跨链事件记，方便异常时重新发送请求。
-5. **中继链传递跨链事件**： MOS 链间通讯组件 Messenger 在检测到该事件后，将跨链事件和事件证明信息一起传输到中继链的 MOS 中，一旦经过 Light Client 验证Proof 即可生成跨链到目标链事件(5)。
-6. **目标链接受请求**： MOS 链间通讯组件 Messenger 在检测到该事件(5)后,将跨链事件和事件证明信息一起传输到目标链的 MOS 合约中，一旦经过 Light Client 验证Proof 即可继续执行合约。
-7. **响应跨链请求**： MOS 主动调用 TokenPortal 合约的 relayCrossChainRequest 函数，传递跨链请求数据。
-8. **二次验证**：TokenPortal  利用校验码校验跨链请求数据是否完备，并不允许重新响应相同请求。
-9. **释放资产**： TokenPortal 从 Vault 中解锁资产。
-10. **发送资产**：Token Portal 将解锁资产发放给资产接收人。
+### 跨链操作流程
+
+![image-20230408155549632](assets/accp20-flow.png)
 
 
+#### 组件说明
+
+**Portal**：在每条链中均会部署，它有三个职能：
+
+1. 管理 vault，负责将资产锁定到 vault 中，或从 vault 中解锁资产提取给用户；
+2. 处理跨链请求：接收用户的跨链请求，将跨链请求发送给MOS。响应跨链请求，将资产解锁给用户；
+3. 铸造cToken和mToken。
+
+ **mToken**: 资产锁定凭据，在 MAPO 中由 Portal 根据锁仓量铸造，在解锁资产前销毁。
+
+
+
+#### 锁仓流程
+
+1. 如上图实例，用户 Butter 在源链（BSC）上发起兑换 1000 USDC 到 MAPO链的请求，Portal 将 1000 USDC 从 Butter 账户中转入 USDC Vault中锁定；
+2. Portal 通过 MOS 同步该锁仓消息到 MAPO；
+3. MAPO链中的 Portal 接收到锁仓消息后， 1:1 铸造 1000 mUSDCBSC 给用户 Butter。
+
+至此，在 MAPO 链上 Butter 拥有 1000 mUSDC 作为锁仓凭证。同理，用户 Kash 从源链（Ethereum链）上锁仓 1200 USDC，拥有 1200 mUSDCΞ 。
+
+#### 解锁流程
+
+1. 用户 Kash  请求解锁 800 USDC 到目标链（ BSC 链）；
+2. Portal 需要通过 Swap 计算兑换800 USDC所需要的 mUSDCΞ 的数量，然后销毁  mUSDCBSC，并将解锁消息通过 MOS 发往目标链；
+3. 目标链 Portal 接收到解锁消息后，给用户 Kash 发送 800 USDC。
+
+#### 资产跨链流程
+
+锁仓和解锁，是资产跨链兑换的两部分。从源链锁仓，在目标链解锁，由 MAP Relay Chain 传递跨链消息。 当 Kash 请求从目标链以太坊跨链 800 USDC 到 BSC链时，将自动执行锁仓和解锁，流程如下：
+
+1. 在 Ethereum 链锁定 800 USDC；
+2. 在 MAPO 链铸造 800 mUSDCΞ;
+3. 在 MAPO 链销毁 799 mUSDCBSC；
+4. 在 BSC 链解锁 799 USDC。
 
 ### 流动性说明
 
-请求资产跨链后，在目标链能否成功释放资产，这取决于目标链 TokenVault 中流动性是否充裕。如果流动性枯竭，将无法释放资产。为解决此问题，有三种方案可选：
+在 MAPO 链拥有 mToken 则拥有了兑换其他链资产的能力。当 MAP 生态中的项目方都将资产通过 ACCP20 协议跨链，将提高资本利用率。
 
-方案一：原路回退跨链请求，这势必增加了资产跨链的复杂性，且面临 DOS 攻击风险。
+当出现挤兑时，将面临流动性枯竭无法解锁资产问题。为解决此问题，采用两个并行发方案来缓解流动性：
 
-方案二：需要用户在目标链流动性充裕后在源链上通过 TokenPortal 合约 retry 一次跨链请求。该方案在流动性紧张或不稳定时，retry 不能确保成功，影响用户体验。
+1. Swap算法： 跨链视为不同链上的同类资产兑换，类似于不同稳定币间的兑换交易。由算法决定mToken兑换价格，具体见Swap算法。
+2. 期票：用户可选择不使用AMM跨链兑换，而是选择兑换成一张 7 天到期的期票 bToken，到期后可在目标链可以 1:1 兑换真实资产，但只有在Vault流动性充裕时成功兑换。也可以在 NFT 市场折价出售。 
 
-方案三：发放兑换票据，流动性不足时跨链请求保持成功，释放的不是目标链真实资产，而是目标链上的资产兑换凭据 Token。使用凭据 Token可以 1:1 兑换真实资产。该方案确保跨链请求不受流动性影响，用户也能在流动性充裕时立即从  TokenVault 兑换资产。
+通过 mToken、Swap算法和期票的组合方案，让生态共享流动性，解决了如何获取流动性和如何使用流动性问题。
+
+#### Swap算法
+
+Curve 是专门为稳定币设计的 DEX，他改进了自动做市商模型，将稳定币交易对的滑点降低。AACP20也采用已经被验证过的 Curve 稳定币AMM模型，沿用到同一资产在不同链上的兑换中。详见 [Curve AMM](https://alvarofeito.com/articles/curve/) 算法。
+
+![img](assets/curves_curve_comparison.png)
+
+
 
 ### 接口描述
 
 ```Solidity
 
-interface ICrossChainRequestReceiver{
-
-	function onCrossChainRequestReceived(
-		 uint256 sourceChainId, bytes32 recipient,
-     bytes32 sourceAssetAddress,
-	   uint256 amount,
-	   bytes calldata payload
-	);
+interface ISwapReceiver{ 
+	function onCrossChainSwapReceived(CrossContext ctx,bytes calldata data);
 }
 
-/**
-  @notice 发送资产跨链请求
-*/
-interface ITokenPortalOut {
+struct CrossContext{
+		uint128 targetChainId
+		uint128 nonce
+		uint8   clientVerion //在源链的Portal版本
+		bytes32 reqId
+}
 
+struct CrossSwapTokensParams{  
+		 bytes32 recipient,
+		 uint128 amountIn, 
+		 uint128 amountOutMin,
+		 uint256 flags ,//1-Allow Hook,2-Accept cToken,
+		 bytes32[] paths, // 资产转移路径
+	   bytes   data, // 如果允许 hook 调用，则 recipient 必须为合约并实现 ISwapReceiver 接口。
+}
+ 
+
+interface ITokenPortal{
 		/**
-		  @notice 请求锁定资产以进行跨链操作
-		  @dev    在提交请求时还需要支付原子资产作为 relayerFee
-		  @param  targetChainId        目标链ID
-		  @param  targetChainRecipient 目标链接收地址
-		  @param  sourceAssetAddress   源链资产地址
-		  @param  amount         跨链数量
-		  @param  salt           作为跨链请求的一部分，便于生生成不同的 ReqID
-		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。
-		  @param  payload   额外携带的数据包，用作 `requestReceiver.onCrossChainRequestReceived`的`payload`数据填充.
-		  @param  payloadGasLimit 指定 onCrossChainRequestReceived 方法的Gas开销上线。该值可以通过在目标链模拟执行 relayCrossChainRequest 计算。
-		  @param  返回本次跨链请求事件 verificationCode
+		 	@notice 跨链兑换资产
+		 	@dev 
+		 	1. 将销毁 msg.sender 的 mtoken，需要 msg.sender 先授权转移 mtoken；
+		 	2. 必须检查可兑换数量是否符合要求 ；
+		 	3. 必须检查目标链资产是否是匹配的映射； 
+		 	4. 根据 SWAP 算法计算 mtoken 可以兑换的目标链资产数量
+		 	@param  params    Swap请求信息
+		 	@return reqID  该请求ID
 		*/
-		function submitCrossChainRequest(
-		 uint256 targetChainId, bytes32 targetChainRecipient,
-		 bytes32 sourceAssetAddress, uint256 amount,bytes32 salt,
-	   bytes32 requestReceiver, bytes calldata payload,uint256 payloadGasLimit) 
-	   returns(bytes32 verificationCode) payable;
-
-			/**
-			 @notice  重发请求
-			 @dev 只允许提交过的请求重新发送，重新发送的目的是方便目标链重新处理事情。
-			 注意：目标链将确保 verificationCode 只会处理一次。
-			*/
-		 function retryCrossChainRequest(bytes32 verificationCode);
-
+	  function crossSwapExactTokensForTokens(CrossSwapTokensParams params) external returns(bytes32 reqID);
+	  /**
+	    @notice 接收到Swap成 mToken 消息
+	    @dev 将 1:1 铸造对应的 mtoken。
+	    1. 根据 SWAP 算法来确定 
+		 	4. 如果是需要考虑到其他链，则需要进一步传递消息。
+	  */
+		function onSwapReceived(CrossContext ctx,CrossSwapTokensParams params) external;
+		 
+		// 重新发送跨链请求
+	  function retryTx(bytes32 reqID) external;
+	  // 读取reqID
+	  function getReqId(CrossSwapTokensParams params) external view returns(bytes32 reqID);
 }
-
-/**
-  @notice 响应资产跨链请求
-*/
-interface ITokenPortalIn {
-
-			/**
-			@notice 执行解锁资产以完成跨链操作
-			@dev    该方法的msg.sender 只允许是 MOS 合约或者空地址。
-			 1. msg.sender 为空地址，说明是链下模拟执行。
-			 2. 注意 MOS 合约地址变更，则将无法正常工作。
-			 3. 必须确保 verificationCode 只会被处理一次且验证数据的完备性。
-		  @param  sourceChainId   		源链ID
-		  @param  recipient       		接收地址
-		  @param  sourceAssetAddress  源链资产地址
-		  @param  amount          跨链数量
-		  @param  salt            作为跨链请求的一部分
-		  @param  requestReceiver 如果不为空，则在目标链的unclok中发送资产给 targetChainRecipient 后将立即主动执行一次该执行 requestReceiver 合约的 onCrossChainRequestReceived 方法。
-		  @param  payload   额外携带的数据包，用作 `requestReceiver.onCrossChainRequestReceived`的`payload`数据填充.
-		  @param verificationCode 校验码，用于校验数据的完整性，它是跨链请求消息的SHA3哈希值。
-		*/
-		function relayCrossChainRequest(
-		 uint256 sourceChainId, bytes32 recipient,
-     bytes32 sourceAssetAddress,
-	   uint256 amount,bytes32 salt,
-	   bytes32 requestReceiver, bytes calldata payload,
-	   bytes32 verificationCode);
-
-	   /**
-	     @notice 在目标链上查询指定跨链请求是否已完成
-	   */
-	   function isRequestCompleted(bytes32 verificationCode) view returns(bool);
-}
-
 
 
 interface ITokenVault {
@@ -134,18 +163,19 @@ interface ITokenVault {
 		/**
 		  @notice 返回 vault 中管理的底层资产合约地址
 		*/
-	  function underlyingToken() view returns(address);
+	  function underlying() view returns(address);
 
 		/**
 		  @notice 返回对应的等值可兑换票据Token合约地址
 		  @dev 只有 Vault 有权限 Mint 和 Burn 操作 ConvertibleToken
 		*/
-	  function convToken() view returns(address);
+	  function bond() view returns(address);
 
 		/**
 		 * @notice 查询 locker 的锁定数量
 		*/
 		function balanceOf(address locker) view returns(uint256 amount);
+		
 		/**
 		  @notice 请求锁定的资产数量
 		  @dev  锁定资产将记录在
@@ -154,37 +184,37 @@ interface ITokenVault {
 
 		/**
 		  @notice 请求解锁的资产数量
-		  @param to      解锁资产接受地址，不能为空地址
 		  @param amount  解锁数量
-		  @param recvConvertibleToken  是否同意在流动性不足时接收等值的可转换票据
-		  @return convTokens 返回在流动性不足时有多少Token被使用可转换票据替代。
+		  @param to      解锁资产接受地址，不能为空地址
+		  @return bTokens 返回在流动性不足时有多少Token被使用可转换票据替代。
 		*/
-		function unlock(address to, uint256 amount,bool recvConvertibleToken) returns(uint256 convTokens);
-
+		function unlock(uint256 amount,address to) returns(uint256 bTokens);
+		
+		/**
+		  @notice 闪电贷
+		*/
+		function flashLoan(address receiver,uint256  amounts,bytes calldata params) external;
+		
 		/**
 		  @notice 将 ConvertibleToken 兑换成真实资产
 		*/
-		function swapConvertibleTokenToAsset(uint256 amount);
+		function swapBondTokenToUnderlying(uint256 amount);
 }
 
-interface IConvertibleToken is IERC20Permit {
-	 function mint(address to, uint256 amount);
+interface IBondToken is IERC721Permit {
+	 function mint(address to, uint256 underlyingValue);
 	 function burn(uint256 amount);
 }
 
 ```
 
-## 基本原理
 
-MAP Protocol的轻节点验证网络采用独立自我验证机制和即时验证的特点，可以确保资产跨链的安全性。跨链OrderID和 verificationCode  的唯一性可以防止用户在源链和目标链上同时使用相同的资产。此外，Maintainer 是独立的跨链程序，负责更新轻节点的状态，Light-Client 机制确保Maintainer的恶意攻击无效。
-
-本协议是在 MAP Protocol 底层协议之上构建的应用层标准，规范了 ERC20 资产跨链的交互流程。
 
 
 
 ## 安全考虑
 
-作为跨链标准组件，该协议不允许加入管理员权限。使用跨链OrderID和 verificationCode  的唯一性可以防止用户在源链和目标链上同时使用相同的资产。
+作为跨链标准组件，该协议不允许加入管理员权限。使用跨链OrderID和 reqID 的唯一性可以防止用户在源链和目标链上同时使用相同的资产，同时可自由创建 mToken交易对。
 
 
 
