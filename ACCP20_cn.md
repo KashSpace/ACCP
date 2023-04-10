@@ -39,9 +39,9 @@ MAP Protocol的轻节点验证网络采用独立自我验证机制和即时验�
 
 资产跨链拆分为两个环节：跨入和跨出：
 
-**跨入：**在源链上将原始 ERC20 代币锁定在 Vault 合约中。再在  L0 上 1:1 铸造 mToken 。
+**跨入**: 在源链上将原始 ERC20 代币锁定在 Vault 合约中。再在  L0 上 1:1 铸造 mToken 。
 
-**跨出**: 在L0上将持有的 mToken兑换成目标链的 mToken，然后销毁，继而在目标链 Vault 合约中解锁对应数量的目标资产。
+**跨出**: 在L0上将持有的 mToken销毁并兑换成目标链的资产 ，继而在目标链 Vault 合约中解锁对应数量的目标资产。
 
 锁定和解锁之间的关联将由 MAP Protocol 提供的跨链验证网络来确保。跨链可兑换数量由Swap流动性确定。
 
@@ -90,14 +90,14 @@ Curve 是专门为稳定币设计的 DEX，他改进了自动做市商模型，�
 
 1. 如上图实例，用户 Butter 在源链（BSC）上发起兑换 1000 USDC 到 MAPO链的请求，Portal 将 1000 USDC 从 Butter 账户中转入 USDC Vault中锁定；
 2. Portal 通过 MOS 同步该锁仓消息到 MAPO；
-3. MAPO链中的 Portal 接收到锁仓消息后， 1:1 铸造 1000 mUSDCBSC 给用户 Butter。
+3. MAPO链中的 Portal 接收到锁仓消息后， 1:1 铸造 1000 mBSCUSDC 给用户 Butter。
 
-至此，在 MAPO 链上 Butter 拥有 1000 mUSDC 作为锁仓凭证。同理，用户 Kash 从源链（Ethereum链）上锁仓 1200 USDC，拥有 1200 mUSDCΞ 。
+至此，在 MAPO 链上 Butter 拥有 1000 mUSDC 作为锁仓凭证。同理，用户 Kash 从源链（Ethereum链）上锁仓 1200 USDC，拥有 1200 mΞUSDC 。
 
 #### 解锁流程
 
 1. 用户 Kash  请求解锁 800 USDC 到目标链（ BSC 链）；
-2. Portal 需要通过 Swap 计算兑换800 USDC所需要的 mUSDCΞ 的数量，然后销毁  mUSDCBSC，并将解锁消息通过 MOS 发往目标链；
+2. Portal 需要通过 Swap 计算兑换800 USDC所需要的 mΞUSDC 的数量，然后销毁  mBSCUSDC，并将解锁消息通过 MOS 发往目标链；
 3. 目标链 Portal 接收到解锁消息后，给用户 Kash 发送 800 USDC。
 
 #### 资产跨链流程
@@ -105,9 +105,10 @@ Curve 是专门为稳定币设计的 DEX，他改进了自动做市商模型，�
 锁仓和解锁，是资产跨链兑换的两部分。从源链锁仓，在目标链解锁，由 MAP Relay Chain 传递跨链消息。 当 Kash 请求从目标链以太坊跨链 800 USDC 到 BSC链时，将自动执行锁仓和解锁，流程如下：
 
 1. 在 Ethereum 链锁定 800 USDC；
-2. 在 MAPO 链铸造 800 mUSDCΞ;
-3. 在 MAPO 链销毁 799 mUSDCBSC；
-4. 在 BSC 链解锁 799 USDC。
+2. 在 L0 链铸造 800 mΞUSDC;
+3. 在 L0 链用 800 mΞUSDC 兑换 799 mBSCUSDC；
+4. 在 L0 链销毁 799 mBSCUSDC；
+5. 在 BSC 链解锁 799 USDC。
 
 ### 模块说明
 
