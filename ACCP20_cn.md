@@ -78,9 +78,19 @@ graph LR;
 
 #### Swap算法
 
+Swap算法非 ACCP 协议核心，项目方都共同使用 mToken 则可以构建任意形式的流动性兑换方案。Swap 算法有几种形式可采用：
+
+1. AMM算法
+
 Curve 是专门为稳定币设计的 DEX，他改进了自动做市商模型，将稳定币交易对的滑点降低。AACP 也采用已经被验证过的 Curve 稳定币AMM模型，沿用到同一资产在不同链上的兑换中。详见 [Curve AMM](https://alvarofeito.com/articles/curve/) 算法。
 
 ![img](assets/curves_curve_comparison.png)
+
+2. 恒定兑换
+
+AMM 始终存在滑点，可以采用恒定兑换原则，非 1:1 兑换，而是 10000 : 9995 兑换等。
+
+具体兑换算法由市场自由选择。
 
 ### 跨链操作流程
 
